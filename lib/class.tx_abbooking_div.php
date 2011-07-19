@@ -122,7 +122,7 @@ class tx_abbooking_div {
 	}
 
 	/**
-	 * Get cals per day
+	 * Get rates per day
 	 *
 	 * @param	string		$uid
 	 * @param	array		$interval: ...
@@ -171,24 +171,16 @@ class tx_abbooking_div {
 			$myquery .= ' AND ((tx_abbooking_seasons.starttime <='. $interval['endList'].' OR tx_abbooking_seasons.starttime = 0) ';
 			$myquery .= ' AND (tx_abbooking_seasons.endtime > '.$interval['startList'].' OR tx_abbooking_seasons.endtime = 0))';
 
-			$res = $GLOBALS['TYPO3_DB']->exec_SELECTquery('tx_abbooking_price.uid as uid, tx_abbooking_seasons.starttime as starttime, tx_abbooking_seasons.endtime as endtime, tx_abbooking_price.title as title, currency, adult1, adult2, adult3, adult4, child, teen, discount, discountPeriod, singleComponent1, singleComponent2','tx_abbooking_price,tx_abbooking_seasons_priceid_mm,tx_abbooking_seasons',$myquery,'',' FIND_IN_SET(tx_abbooking_price.uid, '.$GLOBALS['TYPO3_DB']->fullQuoteStr($priceids, 'tx_abbooking_price').') ','');
+			$res = $GLOBALS['TYPO3_DB']->exec_SELECTquery('tx_abbooking_price.uid as uid, tx_abbooking_seasons.starttime as starttime, tx_abbooking_seasons.endtime as endtime, tx_abbooking_price.title as title, currency, adult1, adult2, adult3, adult4, child, teen, discount, discountPeriod, singleComponent1, singleComponent2, minimumStay, blockDaysAfterBooking, checkInWeekdays','tx_abbooking_price,tx_abbooking_seasons_priceid_mm,tx_abbooking_seasons',$myquery,'',' FIND_IN_SET(tx_abbooking_price.uid, '.$GLOBALS['TYPO3_DB']->fullQuoteStr($priceids, 'tx_abbooking_price').') ','');
 			$p = 0;
 
 			while (($row = $GLOBALS['TYPO3_DB']->sql_fetch_assoc($res))) {
 				$pricesAvailable[$p] = $row;
-//~ print_r($row);
 				$languageOverlay =  tx_abbooking_div::getRecordRaw('tx_abbooking_price', $this->lConf['PIDstorage'], $row['uid']);
 				// overwrite price title
 				$pricesAvailable[$p]['title'] = $languageOverlay[$row['uid']]['title'];
-//~ print_r($languageOverlay);
 				$p++;
 			};
-
-//~ 			foreach ( $newPrices as $id => $rate ) {
-//~ 				$pricesAvailable[$p] = $rate;
-//~ 				$p++;
-//~ 			};
-//~ print_r($pricesAvailable);
 
 			// get the valid prices per day
 			for ($d = $interval['startList']; $d <= $interval['endList']; $d=strtotime('+1 day', $d)) {
@@ -207,7 +199,6 @@ class tx_abbooking_div {
 
 
 		}
-//~ 		print_r($pricePerDay);
  		return $pricePerDay;
 
 	}
@@ -553,19 +544,41 @@ class tx_abbooking_div {
 		$i = 0;
 
 		$productIds=explode(',', $this->lConf['ProductID']);
+
 		foreach ( $productIds as $key => $uid ) {
 			if (!empty($this->lConf['productDetails'][$uid]))
 				$product = $this->lConf['productDetails'][$uid];
 			else
 				continue; // skip because empty or OffTimeProductID
+
 			$i++;
 			$offers[$i] = '';
 			unset($interval);
 			unset($linkBookNow);
+			unset($contentError);
 			if (sizeof($this->lConf['OffTimeProductIDs']) > 0)
 				$offTimeProducts = ','.implode(',', $this->lConf['OffTimeProductIDs']);
 
-			$params_united = $this->lConf['startDateStamp'].'_'.$this->lConf['numNights'].'_'.$this->lConf['numPersons'].'_'.$product['uid'].$offTimeProducts.'_'.$this->lConf['uidpid'].'_'.$this->lConf['PIDbooking'].'_bor1';
+			if ($product['maxAvailable'] < $this->lConf['numNights']) {
+				$interval['limitedVacancies'] = $availableMaxDate;
+				$contentError.= '<br /><i>'.$this->pi_getLL('error_vacancies_limited').'</i><br />';
+				$bookNights = $product['maxAvailable'];
+			} 
+			else {
+				$bookNights = $this->lConf['numNights'];
+			}
+			if ($product['minimumStay'] > $this->lConf['numNights']) {
+				if ($product['minimumStay'] == 1)
+					$text_periods = ' '.$this->pi_getLL('period');
+				else
+					$text_periods = ' '.$this->pi_getLL('periods');
+
+				$contentError.='<br /><i>'.$this->pi_getLL('error_minimumStay').' '.$product['minimumStay'].' '.$text_periods.'</i><br />';
+				if ($bookNights < $product['minimumStay'])
+				$bookNights = $product['minimumStay'];
+			}			
+
+			$params_united = $this->lConf['startDateStamp'].'_'.$bookNights.'_'.$this->lConf['numPersons'].'_'.$product['uid'].$offTimeProducts.'_'.$this->lConf['uidpid'].'_'.$this->lConf['PIDbooking'].'_bor1';
 			$params = array (
 				$this->prefixId.'[ABx]' => $params_united,
 			);
@@ -591,15 +604,10 @@ class tx_abbooking_div {
 				$offers['numOffers']++;
 				$offers[$i] .= '<li class="offerList"><div>'.$link.' <b>'.strtolower($this->pi_getLL('result_available')).'</b></div><br /> '; //.$this->pi_getLL('up_to');
 				$availableMaxDate = strtotime('+ '.$product['maxAvailable'].' days', $this->lConf['startDateStamp']);
-// 				$offers[$i] .= ' '.strftime("%A, %d.%m.%Y", $availableMaxDate);
-				if ($product['maxAvailable'] < $this->piVars['ABnumNights']) {
-					$interval['limitedVacancies'] = $availableMaxDate;
-					$offers[$i] .= '<br /><i>'.$this->pi_getLL('error_vacancies_limited').'</i><br />';
-				}
-				$offers[$i] .= '<br />';
+				$offers[$i] .= $contentError.'<br />';
 				$offers[$i] .= $bodytext;
 
-				$offers[$i] .= $this->printCalculatedRates($uid, $product['maxAvailable'], 1);
+				$offers[$i] .= $this->printCalculatedRates($uid, $bookNights, 1);
 
 				$linkBookNow = '<p class="bookNow">'.$this->pi_linkTP($this->pi_getLL('bookNow'), $params, 0, $this->lConf['gotoPID']).'</p>';
 			} else {
@@ -607,13 +615,9 @@ class tx_abbooking_div {
 			}
 
 			// show calendar list only up to the vacant day
-			if (isset($interval['limitedVacancies']))
-				$interval['endDate'] = $interval['limitedVacancies'];
-			else
-				$interval['endDate'] = $this->lConf['endDateStamp'];
 			$interval['startDate'] = $this->lConf['startDateStamp'];
-// 			$interval['startList'] = strtotime('-2 day', $interval['startDate']);
-// 			$interval['endList'] = strtotime('+2 day', $interval['endDate']);
+			
+			$interval['endDate'] = strtotime('+'.$bookNights.' day', $this->lConf['startDateStamp']);
 
 			$offers[$i] .= tx_abbooking_div::printAvailabilityCalendarLine($product['uid'].$offTimeProducts, $interval);
 
@@ -638,18 +642,24 @@ class tx_abbooking_div {
 
 
 		if (class_exists('JSCalendar')) {
-			// unfortunately, the jscalendar doesn't recognize %x as dateformat
-			if ($GLOBALS['TSFE']->config['config']['language'] == 'de')
-				$dateFormat = '%d.%m.%Y';
-			else
-				$dateFormat = '%Y-%m-%d';
+			if ($this->conf['dateFormat'] != '') {
+				$dateFormat = $this->conf['dateFormat'];
+			} else {
+				// unfortunately, the jscalendar doesn't recognize %x as dateformat
+				if ($GLOBALS['TSFE']->config['config']['language'] == 'de')
+					$dateFormat = '%d.%m.%Y';
+				else if ($GLOBALS['TSFE']->config['config']['language'] == 'en')
+					$dateFormat = '%d/%m/%Y';
+				else
+					$dateFormat = '%Y-%m-%d';
+			}
 			$JSCalendar = JSCalendar::getInstance();
 			// datetime format (default: time)
-                        $JSCalendar->setDateFormat(false, $dateFormat);
+            $JSCalendar->setDateFormat(false, $dateFormat);
 			$JSCalendar->setNLP(false);
-                        $JSCalendar->setInputField($name);
+            $JSCalendar->setInputField($name);
 			$JSCalendar->setConfigOption('ifFormat', $dateFormat);
-			$out .= $JSCalendar->render(strftime($dateFormat, $value));
+ 			$out .= $JSCalendar->render(strftime($dateFormat, $value));
 			if (($jsCode = $JSCalendar->getMainJS()) != '') {
 				$GLOBALS['TSFE']->additionalHeaderData['abbooking_jscalendar'] = $jsCode;
 			}
