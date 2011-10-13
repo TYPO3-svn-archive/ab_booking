@@ -138,7 +138,7 @@
 }
 
 .tx-abbooking-pi1 div.calendarCheckinOverview .bookingInfos #depature {
-	color: #aa000;
+	color: #aa0000;
 	font-weight: bold;
 	text-decoration: none;
 }
@@ -241,6 +241,12 @@ input.submit {
 	float: right;
 	margin: 0px;
 	font-size: 140%;
+	background-color: #aadd88;
+}
+
+input.submit_dateSelect {
+	padding: 5px;
+	margin: 0px;
 	background-color: #aadd88;
 }
 
