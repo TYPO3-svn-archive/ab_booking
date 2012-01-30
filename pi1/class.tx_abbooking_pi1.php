@@ -898,7 +898,12 @@ class tx_abbooking_pi1 extends tslib_pibase {
 
 		$lang = $GLOBALS['TSFE']->config['config']['language'];
 
-		return $title[$lang];
+		if (!empty($title[$lang]))
+			$langTitle = $title[$lang];
+		else
+			$langTitle = current($title);
+
+		return $langTitle;
 	}
 
 	/**
