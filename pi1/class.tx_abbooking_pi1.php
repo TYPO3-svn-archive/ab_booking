@@ -94,7 +94,7 @@ class tx_abbooking_pi1 extends tslib_pibase {
 //~ print_r($this->piVars);
 		// get all initial settings
 		$this->init();
-
+print_r($this->conf);
 		if (!isset($interval['startDate'])) {
 			$interval['startDate'] = $this->lConf['startDateStamp'];
 			$interval['endDate'] = strtotime('+ '.$this->lConf['numCheckMaxInterval'].' days', $interval['startDate']);
@@ -1566,6 +1566,11 @@ class tx_abbooking_pi1 extends tslib_pibase {
 	 * @return	string		with amount, currency...
 	 */
 	function calcRates($key, $period) {
+		
+			if ($this->lConf['useTSconfiguration'] == 1)
+				return $this->calcRatesTSMode($key, $period);
+			else
+				return $this->calcRatesDBMode($key, $period);
 
 			if ($this->lConf['useTSconfiguration'] == 1)
 				return $this->calcRatesTSMode($key, $period);

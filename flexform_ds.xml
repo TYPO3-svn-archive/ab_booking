@@ -165,6 +165,15 @@
 					</config>
 				</TCEforms>
 			</showBookingRate>
+			<showBookingRate>
+				<TCEforms>
+					<label>LLL:EXT:ab_booking/locallang_tca.xml:ab_booking.pi_flexform.showBookingRate</label>
+					<config>
+						<type>check</type>
+						<default>0</default>
+					</config>
+				</TCEforms>
+			</showBookingRate>
 		</el>
 	</ROOT>
 </sheetCalendarOptions>
