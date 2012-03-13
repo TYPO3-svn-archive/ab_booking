@@ -1241,6 +1241,7 @@ class tx_abbooking_pi1 extends tslib_pibase {
 		$text_mail .= "===\n";
 
  		if (is_array($this->lConf['form']) && count($this->lConf['form'])>1) {
+			$text_mail .= $this->pi_getLL('product_title').": ".$product['title']."\n";
 			foreach ($this->lConf['form'] as $formname => $form) {
 				$formname = str_replace('.', '', $formname);
 				// skip settings which are no form fields
@@ -1293,7 +1294,7 @@ class tx_abbooking_pi1 extends tslib_pibase {
 			$email_owner = t3lib_utility_Mail::getSystemFrom();
 		$email_customer = array($customer['address_email'] => $customer['address_name']);
 		$subject_customer = $this->pi_getLL('email_your_booking').': '.$product['title'].' '.strftime("%a, %d.%m.%Y", $this->lConf['startDateStamp']).' - '.strftime("%a, %d.%m.%Y", $this->lConf['endDateStamp']);
-		$subject_owner = $this->pi_getLL('email_new_booking').' '.$customer['address_name'].': '.$product['title'].' '.strftime("%a, %d.%m.%Y", $this->lConf['startDateStamp']).' - '.strftime("%a, %A, %d.%m.%Y", $this->lConf['endDateStamp']);
+		$subject_owner = $this->pi_getLL('email_new_booking').' '.$customer['address_name'].': '.$product['title'].' '.strftime("%a, %d.%m.%Y", $this->lConf['startDateStamp']).' - '.strftime("%a, %d.%m.%Y", $this->lConf['endDateStamp']);
 
 		if (version_compare(TYPO3_version, '4.5', '<')) {
 			// send mail for TYPO3 4.4.x....
@@ -1867,6 +1868,7 @@ class tx_abbooking_pi1 extends tslib_pibase {
 //~ 						$usedPrices[$cur_title]['rateUsed']++;
 						$usedPrices[$cur_title]['rateUsed'] += $rateValue['incrementUse'];
 						$usedPrices[$cur_title]['priceIsPerWeek'] = $rateValue['priceIsPerWeek'];
+						$usedPrices[$cur_title]['dayStep'] = $dayStep;
 						$usedPrices[$cur_title]['rateValue'] = $rateValue['discountRate'];
 						$usedPrices[$cur_title]['discount'] = $rateValue['discount'];
 						$usedPrices[$cur_title]['isOption'] = $rateValue['isOption'];
@@ -1921,6 +1923,7 @@ class tx_abbooking_pi1 extends tslib_pibase {
 							$usedPrices[$cur_title]['title'] = $title;
 							$usedPrices[$cur_title]['rateUsed'] += $rateValue['incrementUse'];
 							$usedPrices[$cur_title]['priceIsPerWeek'] = $rateValue['priceIsPerWeek'];
+							$usedPrices[$cur_title]['dayStep'] = $dayStep;
 							$usedPrices[$cur_title]['rateValue'] = $rateValue['discountRate'];
 							$usedPrices[$cur_title]['discount'] = $rateValue['discount'];
 							$usedPrices[$cur_title]['isOption'] = $rateValue['isOption'];
@@ -1992,19 +1995,31 @@ class tx_abbooking_pi1 extends tslib_pibase {
 			// step through used dates and create date interval string
 			$openInterval = 0;
 			$lastday = 0;
+//~ print_r($value);			
 			foreach ($value['usedDates'] as $id => $currday) {
 				$dayDiff = (int)($currday - $lastday);
 				if ($id == 0 || $openInterval == 0) {
 					$dateUsed = strftime('%a %x', $currday).' - ';
 					$openInterval = 1;
 				} else if ($openInterval == 1 && $dayDiff > 86400) {
-					$dateUsed .= strftime('%a %x', $lastday );
+					if ($value['priceIsPerWeek'] == '1')
+						$dateUsed .= strftime('%a %x', $currday+(($value['dayStep'])*86400));
+					else
+						$dateUsed .= strftime('%a %x', $lastday);
 					$openInterval = 0;
 				}
 				$lastday = $currday;
 			}
-			if ($openInterval == 1)
-				$dateUsed .= strftime('%a %x', $lastday+($dayStep*86400) );
+//~ print_r($dateUsed."\n");			
+			
+			if ($openInterval == 1) {
+				if ($value['priceIsPerWeek'] == '1')
+					$dateUsed .= strftime('%a %x', $lastday+(($value['dayStep'])*86400));
+				else
+					$dateUsed .= strftime('%a %x', $lastday+($value['dayStep']*86400) );
+			}
+//~ print_r($dateUsed."\n");			
+//~ print_r("------------\n");			
 
 			$lDetails['dates'][] = $dateUsed;
 			$lDetails['value'] = $value['rateUsed'].' x '.number_format($value['rateValue'], 2, ',', '').' '.$currency.' = '.number_format($value['rateUsed']*$value['rateValue'],2,',','').' '.$currency;
